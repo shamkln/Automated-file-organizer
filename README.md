@@ -63,10 +63,33 @@ This project automatically organizes files into folders based on their file exte
 ```
 
 ```
-##  Project Structure
-1.Source Code  
-2.Screenshots  
-3.Documentation  
+## Project Structure
+automated-file-organizer/  
+│  
+├── file_organizer.py     ← Main Python script  
+├── file_organizer.log    ← Auto-generated log file (after first run)  
+└── README.md             ← Project documentation  
+```
+
+```
+## How It Works (Step-by-Step)
+Step 1 → User provides a directory path  
+         ↓  
+Step 2 → Script lists all files in that directory  
+         ↓  
+Step 3 → For each file, extract the extension (.jpg, .pdf, etc.)  
+         ↓  
+Step 4 → Look up extension in FOLDER_MAP to find category  
+         ↓  
+Step 5 → Create the category sub-folder (if it doesn't exist)  
+         ↓  
+Step 6 → Check for name conflicts → rename if needed  
+         ↓  
+Step 7 → Move the file using shutil.move()  
+         ↓  
+Step 8 → Log the action & update summary counter  
+         ↓  
+Step 9 → Print final summary report  
 ```
 
 ```
