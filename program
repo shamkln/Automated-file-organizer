@@ -1,0 +1,159 @@
+
+import os
+import shutil
+import logging
+from datetime import datetime
+
+# ─────────────────────────────────────────────
+# Logging setup
+# ─────────────────────────────────────────────
+LOG_FILE = "file_organizer.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  [%(levelname)s]  %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────
+# Extension → Folder mapping
+# ─────────────────────────────────────────────
+FOLDER_MAP: dict[str, list[str]] = {
+    "Images":     [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg",
+                   ".webp", ".tiff", ".ico"],
+    "Videos":     [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv",
+                   ".webm", ".mpeg", ".3gp"],
+    "Audio":      [".mp3", ".wav", ".aac", ".flac", ".ogg", ".wma",
+                   ".m4a", ".opus"],
+    "Documents":  [".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx",
+                   ".ppt", ".pptx", ".odt", ".csv", ".rtf", ".md"],
+    "Archives":   [".zip", ".tar", ".gz", ".rar", ".7z", ".bz2",
+                   ".xz", ".tgz"],
+    "Code":       [".py", ".js", ".ts", ".html", ".css", ".java",
+                   ".cpp", ".c", ".h", ".go", ".rb", ".php",
+                   ".sh", ".sql", ".json", ".xml", ".yaml", ".yml"],
+    "Executables":[".exe", ".msi", ".apk", ".dmg", ".deb", ".rpm"],
+    "Fonts":      [".ttf", ".otf", ".woff", ".woff2"],
+    "Others":     [],   # catch-all
+}
+
+# Build reverse lookup  extension → folder
+EXT_TO_FOLDER: dict[str, str] = {}
+for folder, extensions in FOLDER_MAP.items():
+    for ext in extensions:
+        EXT_TO_FOLDER[ext.lower()] = folder
+
+
+# ─────────────────────────────────────────────
+# Core helpers
+# ─────────────────────────────────────────────
+
+def get_destination_folder(filename: str) -> str:
+    """Return the category folder name for a given filename."""
+    _, ext = os.path.splitext(filename)
+    return EXT_TO_FOLDER.get(ext.lower(), "Others")
+
+
+def resolve_conflict(dest_path: str) -> str:
+    """
+    If a file already exists at dest_path, append a counter
+    so we never silently overwrite anything.
+    """
+    if not os.path.exists(dest_path):
+        return dest_path
+
+    base, ext = os.path.splitext(dest_path)
+    counter = 1
+    while os.path.exists(f"{base}_{counter}{ext}"):
+        counter += 1
+    return f"{base}_{counter}{ext}"
+
+
+def organize_directory(source_dir: str) -> dict[str, int]:
+    """
+    Walk source_dir and move every file into the appropriate
+    sub-folder.  Returns a summary dict {folder: count}.
+    """
+    source_dir = os.path.abspath(source_dir)
+
+    if not os.path.isdir(source_dir):
+        logger.error("Directory not found: %s", source_dir)
+        return {}
+
+    logger.info("=" * 60)
+    logger.info("Starting File Organizer")
+    logger.info("Source directory : %s", source_dir)
+    logger.info("Started at       : %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info("=" * 60)
+
+    summary: dict[str, int] = {}
+    skipped = 0
+
+    for filename in os.listdir(source_dir):
+        filepath = os.path.join(source_dir, filename)
+
+        # Skip directories and the log file itself
+        if os.path.isdir(filepath):
+            logger.info("Skipping directory : %s", filename)
+            skipped += 1
+            continue
+
+        if filename == LOG_FILE:
+            continue
+
+        category    = get_destination_folder(filename)
+        folder_path = os.path.join(source_dir, category)
+
+        # Create sub-folder if needed
+        os.makedirs(folder_path, exist_ok=True)
+
+        dest_path  = os.path.join(folder_path, filename)
+        dest_path  = resolve_conflict(dest_path)
+        final_name = os.path.basename(dest_path)
+
+        shutil.move(filepath, dest_path)
+        logger.info("Moved %-40s → %s/%s", filename, category, final_name)
+
+        summary[category] = summary.get(category, 0) + 1
+
+    # ── Print summary ──────────────────────────────────────────
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("SUMMARY")
+    logger.info("=" * 60)
+    total = sum(summary.values())
+    for folder, count in sorted(summary.items()):
+        logger.info("  %-20s :  %d file(s)", folder, count)
+    logger.info("  %-20s :  %d folder(s)", "Skipped (dirs)", skipped)
+    logger.info("─" * 60)
+    logger.info("  %-20s :  %d file(s)", "Total moved", total)
+    logger.info("=" * 60)
+
+    return summary
+
+
+# ─────────────────────────────────────────────
+# Entry point
+# ─────────────────────────────────────────────
+
+def main():
+    print("\n========================================")
+    print("   Automated File Organizer")
+    print("   CodTech IT Solutions Internship")
+    print("========================================\n")
+
+    source = input("Enter the full path of the directory to organize\n"
+                   "(press Enter to use current directory): ").strip()
+
+    if not source:
+        source = os.getcwd()
+
+    organize_directory(source)
+    print(f"\nDone! Check '{LOG_FILE}' for the full log.\n")
+
+
+if __name__ == "__main__":
+    main()
